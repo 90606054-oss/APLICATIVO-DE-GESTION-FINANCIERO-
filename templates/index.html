@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestión Financiera</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Dashboard de Finanzas Personales</h1>
+        <p>Controla tus ingresos, gastos y metas de ahorro.</p>
+      </header>
+
+      <section class="panel">
+        <h2>Presupuesto inicial</h2>
+        <form method="POST">
+          <input type="hidden" name="accion" value="set_income" />
+          <label for="ingreso">Ingreso mensual ($)</label>
+          <input id="ingreso" type="number" name="ingreso" min="0" step="0.01" value="{{ ingreso_total if ingreso_total else 1000 }}" required />
+          <button type="submit">Definir ingreso</button>
+        </form>
+      </section>
+
+      <section class="summary-grid">
+        <div class="card success">
+          <span>Ingreso mensual</span>
+          <strong>${{ "{:,.2f}".format(ingreso_total) }}</strong>
+        </div>
+        <div class="card warning">
+          <span>Total gastado</span>
+          <strong>${{ "{:,.2f}".format(total_gastado) }}</strong>
+        </div>
+        <div class="card primary">
+          <span>Capacidad restante</span>
+          <strong>${{ "{:,.2f}".format(capacidad_restante) }}</strong>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="panel chart-panel">
+          <h2>Distribución recomendada</h2>
+          <canvas id="budgetChart"></canvas>
+        </div>
+
+        <div class="panel chart-panel">
+          <h2>Gastos reales por categoría</h2>
+          <canvas id="categoryChart"></canvas>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Registrar gasto</h2>
+        <form method="POST" class="expense-form">
+          <input type="hidden" name="accion" value="add_expense" />
+
+          <div class="field">
+            <label for="descripcion">Descripción</label>
+            <input id="descripcion" name="descripcion" type="text" placeholder="Ej. Supermercado, Cine, Luz" required />
+          </div>
+
+          <div class="field">
+            <label for="categoria">Categoría</label>
+            <select id="categoria" name="categoria">
+              <option value="alimentacion">Alimentación</option>
+              <option value="transporte">Transporte</option>
+              <option value="entretenimiento">Entretenimiento</option>
+              <option value="vivienda">Vivienda</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="monto">Monto ($)</label>
+            <input id="monto" name="monto" type="number" min="0" step="0.01" value="0" required />
+          </div>
+
+          <button type="submit">Agregar gasto</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <div class="table-header">
+          <h2>Historial de gastos</h2>
+          <form method="POST" class="inline-form">
+            <input type="hidden" name="accion" value="clear_data" />
+            <button type="submit" class="secondary">Limpiar</button>
+          </form>
+        </div>
+
+        {% if gastos %}
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Descripción</th>
+                  <th>Categoría</th>
+                  <th>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for gasto in gastos %}
+                  <tr>
+                    <td>{{ gasto.descripcion }}</td>
+                    <td>{{ gasto.categoria }}</td>
+                    <td>${{ "{:,.2f}".format(gasto.monto) }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-state">Aún no has registrado gastos. Agrega tu primer gasto arriba.</p>
+        {% endif %}
+      </section>
+    </div>
+
+    <script>
+      const budgetData = {{ budget_plan | tojson }};
+      const categoryData = {{ category_data | tojson }};
+
+      const budgetLabels = Object.keys(budgetData);
+      const budgetValues = Object.values(budgetData);
+
+      new Chart(document.getElementById('budgetChart'), {
+        type: 'pie',
+        data: {
+          labels: budgetLabels,
+          datasets: [{
+            data: budgetValues,
+            backgroundColor: ['#4CAF50', '#FF9800', '#2196F3']
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+
+      const categoryLabels = Object.keys(categoryData);
+      const categoryValues = Object.values(categoryData);
+
+      new Chart(document.getElementById('categoryChart'), {
+        type: 'bar',
+        data: {
+          labels: categoryLabels.length ? categoryLabels : ['Sin gastos'],
+          datasets: [{
+            label: 'Monto gastado ($)',
+            data: categoryLabels.length ? categoryValues : [0],
+            backgroundColor: '#e91e63'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: (value) => '$' + value }
+            }
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
